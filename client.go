@@ -1,12 +1,17 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
+
+var sender = false
 
 // Client --
 func Client() {
@@ -19,6 +24,9 @@ func register() {
 	localAddress := ":9595" // default port
 	if len(os.Args) > 3 {
 		localAddress = os.Args[3]
+	}
+	if len(os.Args) > 4 {
+		sender = os.Args[4] == "sender"
 	}
 
 	remote, _ := net.ResolveUDPAddr("udp", signalAddress)
@@ -37,23 +45,21 @@ func register() {
 }
 
 func listen(conn *net.UDPConn, local string) {
+	bar := progressbar.DefaultBytes(8*1024*1024*20, "listening")
 	for {
-		fmt.Println("listening")
 		buffer := make([]byte, 1024)
 		bytesRead, err := conn.Read(buffer)
+		bar.Add(bytesRead)
 		if err != nil {
 			fmt.Println("[ERROR]", err)
 			continue
 		}
 
-		fmt.Println("[INCOMING]", string(buffer[0:bytesRead]))
-		if string(buffer[0:bytesRead]) == "Hello!" {
-			continue
-		}
-
-		for _, a := range strings.Split(string(buffer[0:bytesRead]), ",") {
-			if a != local {
-				go chatter(conn, a)
+		if strings.Count(string(buffer[0:bytesRead]), ".") == 3 {
+			for _, a := range strings.Split(string(buffer[0:bytesRead]), ",") {
+				if a != local {
+					go chatter(conn, a)
+				}
 			}
 		}
 	}
@@ -61,9 +67,18 @@ func listen(conn *net.UDPConn, local string) {
 
 func chatter(conn *net.UDPConn, remote string) {
 	addr, _ := net.ResolveUDPAddr("udp", remote)
+
 	for {
-		conn.WriteTo([]byte("Hello!"), addr)
-		fmt.Println("sent Hello! to ", remote)
-		time.Sleep(5 * time.Second)
+		// fmt.Println("sent Hello! to ", remote)
+		if sender {
+			var buffer [500]byte
+			rand.Read(buffer[:])
+			conn.WriteTo(buffer[:], addr)
+			time.Sleep(2 * time.Microsecond)
+		} else {
+			conn.WriteTo([]byte("Hello!"), addr)
+			time.Sleep(100 * time.Millisecond)
+
+		}
 	}
 }
