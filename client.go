@@ -74,7 +74,7 @@ func chatter(conn *net.UDPConn, remote string) {
 			var buffer [500]byte
 			rand.Read(buffer[:])
 			conn.WriteTo(buffer[:], addr)
-			time.Sleep(2 * time.Microsecond)
+			time.Sleep(50 * time.Microsecond)
 		} else {
 			conn.WriteTo([]byte("Hello!"), addr)
 			time.Sleep(100 * time.Millisecond)
